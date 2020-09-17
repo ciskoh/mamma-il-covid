@@ -9,18 +9,17 @@
 
 # Imports
 import os
+print(os.environ)
+
 import requests as rq
-
-# Main variables and parameters
-ds_path = os.getcwd() + "/data_source"
-out_path = os.getcwd() + "/output"
-ita_url = "https://github.com/pcm-dpc/COVID-19/blob/master/dati-regioni/dpc-covid19-ita-regioni.csv"
-ch_url = "https://github.com/openZH/covid_19/blob/master/fallzahlen_kanton_total_csv_v2/COVID19_Fallzahlen_FL_total.csv"
+import datetime as dt
+import pandas as pd
 
 
-# startup check
-# Check that files and folders are available
-def check_folders():
+
+# 0. startup check
+# Check that files and folders are available and make them if needed
+def check_folders(ds_path, out_path):
     if not os.path.isdir(ds_path):
         print("no data source folder, creating one")
         os.mkdir(ds_path)
@@ -30,20 +29,61 @@ def check_folders():
         os.mkdir(out_path)
 
 
-# 1 download data_source file
-def download_recent_data(country, date, url):
-    data_path = ds_path + f"/{country}_{date}.csv"
-    if not os.path.exists(data_path):
-        req = rq.get(url, allow_redirects=True)
-        open(data_path, "wb").write()
-        url_content = req.content
-        csv_file = open(data_path, 'wb')
-        csv_file.write(url_content)
-        csv_file.close()
+# 1. download data_source file
+def download_recent_data(data_path, url):
+    print(f'downloading {data_path}')
+    req = rq.get(url, allow_redirects=True)
+    csv_file = open(data_path, 'wb')
+    csv_file.write(req.content)
+    csv_file.close()
+
+# 2 import data
 
 
 
-# 2 clean and import data
+# main function to run
+def main():
+    # Main variables and parameters
+    ds_path = os.path.join(os.getcwd(), "data_source")
+    out_path = os.path.join(os.getcwd(), "output")
 
+    ita_url = 'http://raw.github.com/pcm-dpc/COVID-19/master/dati-regioni/dpc-covid19-ita-regioni.csv'
+    ch_url = 'https://covid19.who.int/WHO-COVID-19-global-data.csv'
+    
+
+    print("data path: ", ds_path)
+    print("output path : ", out_path)
+
+    check_folders(ds_path, out_path)
+
+    # download data for Italy
+    data_path_ita = ds_path + f"/ita_{dt.date.today()}.csv"
+    download_recent_data(data_path_ita, ita_url)
+
+    # download data for ch
+    data_path_ch = ds_path + f"/ch_{dt.date.today()}.csv"
+    download_recent_data(data_path_ch, ch_url)
+
+    # import and clean
+    ita_raw = pd.read_csv(data_path_ita)
+    ds_path = os.getcwd() + "/data_source"
+    data_path_ita = ds_path + f"/ita_{dt.date.today()}.csv"
+    ita_raw = pd.read_csv(data_path_ita)
+
+    # change column names to remove special chars
+    # short_name = {i: re.sub('[\W\_]', '', i) for i in ita_raw.columns}
+    # ita_raw.rename(short_name)
+    # print(ita_raw.columns)
+
+   # print(ita_raw[['data', 'variazione_totale_positivi']])
+  #  plt.plot(ita_raw.data, ita_raw.variazione_totale_positivi)
+
+
+
+    
+
+
+main()
 if __name__ == "main":
-    pass
+    check_folders()
+
