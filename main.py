@@ -322,7 +322,7 @@ app.layout = html.Div([
     html.Div(children=[
             html.H3(children="Questo è l'andamento delle morti.", className='h3'),
             #html.H3(className="h3", children='Ciao mamma \n, ecco i nuovi casi di oggi:'),
-            html.Div(children="Il diametro dei punti raprresenta la proporzione tra morti e nuovi casi"),
+            html.Div(children="Il diametro dei punti rappresenta la proporzione tra morti e nuovi casi"),
             dcc.Graph(figure=fig2)
 ],
      ),
