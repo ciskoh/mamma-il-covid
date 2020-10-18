@@ -221,7 +221,7 @@ col_pos = tuple([1, 2] * (int(len(m_traces) / 2)))
 # add traces
 fig1.add_traces(m_traces, rows=row_pos, cols=col_pos)
 # update layout
-fig1.update_layout(plot_bgcolor="white", title="Nuovi casi (media settimanale) per mese")
+fig1.update_layout(plot_bgcolor="white", )
 fig1.update_yaxes(showgrid=True, gridwidth=0.2, gridcolor='lightgrey')
 # fig1.show()
 
@@ -262,43 +262,71 @@ colors = {
 }
 
 # we use a pre-defined css file. feel free to try others!
+external_stylesheets = ['assets/stylesheet.css']
 
-app = dash.Dash(__name__, )
+
+app = dash.Dash(__name__, external_stylesheets=external_stylesheets )
 server = app.server
 
 # Define app layout
 app.layout = html.Div([
     # Header
-    html.H1(children='Mamma il Covid',
-            style={
-                'textAlign': 'center',
-                'color': colors['text']}
+    html.H1(className='h1', children='Mamma il Covid',
+
+
             ),
 
-    html.Div(children='Visualization: A Dash web application framework for COVID analysis',
-             style={
-                 'textAlign': 'center',
-                 'color': colors['text']}
+    html.Div(className="h1", children='Visualization: A Dash web application framework for COVID analysis',
+
              ),
 
     # separation line
     html.Hr(),
 
     # 3rd header
-    html.H3(children='Global COVID-19 cases',
-            style={
-                'textAlign': 'center',
-                'color': colors['text3']}),
-    dbc.Row([
-        dbc.Col(dbc.Card(card_content_function('new_cases_lom', data=combined), color=col_lom[-1], outline=True)),
-        dbc.Col(dbc.Card(card_content_function('new_cases_ch', data=combined), color=col_ch[-1], outline=True))],
-        className="mb-4"),
+    html.Div([
+            html.H3(className="h3", children='Ciao mamma \n, ecco i nuovi casi di oggi:'),
+            html.Div(children=[
+                     html.Div(children="Lombardia"),
+                     html.Div(combined['new_cases_lom'].iloc[-1])
+                     ],
+                className="pretty_container",
+                style={'display': 'inline-block', 'display': 'inline-block', 'background-color':'#9FA4F5',
+                       'color': "white",
+                       'font-weight': 'bold', 'font-size': '200%'}
 
+
+            ),
+            html.Div(children=[
+                     html.Div(children="Svizzera"),
+                     html.Div(combined['new_cases_ch'].iloc[-1] )
+                     ],
+            className='pretty_container',
+            style={'display': 'inline-block', 'display': 'inline-block', 'background-color':'#ffa6b9','color': "white",
+                  'font-weight': 'bold', 'font-size': '200%' }
+                  ),
+        ],
+    style={'padding-left': '40%'}
+),
     # Time series plot of global confirmed cases
-    dcc.Graph(figure=fig1),
-    # time series of deaths and ratio over cases
+    html.Div(children=[
+            html.H3(children="Questo è l'andamento mensile dei nuovi contagiati"),
+            html.Div(children="I nuovi casi giornalieri sono stati trasformarti in media settimnale, tranne che per l'ultimo mese."),
+            dcc.Graph(figure=fig1)
+            ], className="h1"),
 
-    dcc.Graph(figure=fig2),
+
+
+
+    # time series of deaths and ratio over cases
+    html.Div(children=[
+            html.H3(children="Questo è l'andamento delle morti.", className='h3'),
+            #html.H3(className="h3", children='Ciao mamma \n, ecco i nuovi casi di oggi:'),
+            html.Div(children="Il diametro dei punti raprresenta la proporzione tra morti e nuovi casi"),
+            dcc.Graph(figure=fig2)
+],
+     ),
+    html.Aside(className=".sidebar a", children="Made by Matteo Jucker Riva Thanks to propulsion Academy for all the skills", )
 ])
 
 if __name__ == '__main__':
