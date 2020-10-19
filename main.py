@@ -15,7 +15,7 @@ print(os.environ)
 import requests as rq
 import pandas as pd
 import os
-
+import random
 # --------------------------------- plotting libraries --------------------------------------
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
@@ -27,204 +27,251 @@ import dash_core_components as dcc
 import dash_html_components as html
 
 
-# 0. startup check
-# Check that files and folders are available and make them if needed
-def check_folders(ds_path, out_path):
-    if not os.path.isdir(ds_path):
-        print("no data source folder, creating one")
-        os.mkdir(ds_path)
+# return app
 
-    if not os.path.isdir(out_path):
-        print("no output folder, creating one")
-        os.mkdir(out_path)
+# data preparation
+def select_columns(country_name, source_raw):
+    country_df = pd.DataFrame({
+        'date': source_raw[source_raw[' Country'] == country_name]['Date_reported'],
+        'new_cases': source_raw[source_raw[' Country'] == country_name][' New_cases'],
+        'cum_deaths': source_raw[source_raw[' Country'] == country_name][' Cumulative_deaths'],
+        'cum_cases': source_raw[source_raw[' Country'] == country_name][' Cumulative_cases'],
+    })
+    # turn date as date object
+    country_df[['date']] = [pd.to_datetime(i, format="%Y-%m-%d") for i in source_raw['date']]
+    return country_df
 
-
-# 1. download data_source file
-def download_recent_data(data_path, url):
-    print(f'downloading {data_path}')
-    req = rq.get(url, allow_redirects=True)
-    csv_file = open(data_path, 'wb')
-    csv_file.write(req.content)
-    csv_file.close()
-
-
-#  create cards for dashboard
-def card_content_function(case, data):
-    card_content = [
-        dbc.CardHeader(html.H5(case, className="card-title")),
-        dbc.CardBody([
-            html.P(data[case].sum(),
-                   className="card-text")])]
-    return card_content
-
-
-# main function to run
-
-# Main variables and parameters
-ds_path = os.path.join(os.getcwd(), "data_source")
-out_path = os.path.join(os.getcwd(), "output")
-
-ita_url = 'http://raw.github.com/pcm-dpc/COVID-19/master/dati-regioni/dpc-covid19-ita-regioni.csv'
-ch_url = 'https://covid19.who.int/WHO-COVID-19-global-data.csv'
-
-ita_raw = pd.read_csv(ita_url)
-ch_raw = pd.read_csv(ch_url)
-
-# DATA CLEANING FOR LOMBARDY
-ita_selected = pd.DataFrame({
-    'date': ita_raw[ita_raw['denominazione_regione'] == 'Lombardia']['data'],
-    'new_cases_lom': ita_raw[ita_raw['denominazione_regione'] == 'Lombardia']['nuovi_positivi'],
-    'cum_deaths_lom': ita_raw[ita_raw['denominazione_regione'] == 'Lombardia']['deceduti'],
-    'cum_cases_lom': ita_raw[ita_raw['denominazione_regione'] == 'Lombardia']['totale_casi']
-
-})
-# turn time stamp to pandas data format
-ita_selected['date'] = [pd.to_datetime(i.split("T")[0], format="%Y-%m-%d") for i in ita_selected['date']]
-
-# DATA CLEANING FOR SWITZERLAND
-# ch_cumul=ch_raw[ ['date', 'ncumul_conf']# selected layer
-ch_cumul = pd.DataFrame({
-
-    'date': ch_raw[ch_raw[' Country'] == 'Switzerland']['Date_reported'],
-    'new_cases_ch': ch_raw[ch_raw[' Country'] == 'Switzerland'][' New_cases'],
-    'cum_deaths_ch': ch_raw[ch_raw[' Country'] == 'Switzerland'][' Cumulative_deaths'],
-    'cum_cases_ch': ch_raw[ch_raw[' Country'] == 'Switzerland'][' Cumulative_cases'],
-
-})
-
-# turn date as date object
-ch_cumul[['date']] = [pd.to_datetime(i, format="%Y-%m-%d") for i in ch_cumul['date']]
 
 # merging together layers from ch and lombardy
+def create_new_columns(country_df, window_size=7, ratio=100):
+    country_df['new_cases_smooth'] = ['new_cases'].rolling(window=window_size).mean().fillna(0).astype(int)
+    country_df['deaths_ratio'] = ratio * country_df['cum_deaths'] / country_df['cum_cases']
+    return country_df
 
-combined = ita_selected.merge(ch_cumul, on='date').set_index("date")
-
-# smooth new cases by moving window 7 days
-combined['new_ch_smooth'] = combined['new_cases_ch'].rolling(window=5).mean().fillna(0).astype(int)
-combined['new_lom_smooth'] = combined['new_cases_lom'].rolling(window=5).mean().fillna(0).astype(int)
-
-# death ratios
-# data preparation
-ratio = 100
-combined['deaths_ratio_lom'] = ratio * combined.cum_deaths_lom / (combined.cum_cases_lom)
-
-combined['deaths_ratio_ch'] = ratio * combined.cum_deaths_ch / (combined.cum_cases_ch)
 
 ## --------------------------------------PLOTTING-------------------------------------------------
 """
+
 Current plots:
 1- New cases by month
-2- Deaths per 1000 new cases and trend # TODO
+2- Deaths per 1000 new cases and trend 
 3- Recovered per 1000  new cases and trend # TODO
 """
-# plotting 1- new cases month by month
-un_m = combined.index.month.unique()
-# colour palettes
-pal_lom = sns.color_palette("Blues", n_colors=len(un_m) + 2).as_hex()
-pal_ch = sns.color_palette("Reds", n_colors=len(un_m) + 2).as_hex()
+# PARAMS
+cmaps = ['Greys', 'Purples', 'Blues', 'Greens', 'Oranges', 'Reds',
+         'YlOrBr', 'YlOrRd', 'OrRd', 'PuRd', 'RdPu', 'BuPu',
+         'GnBu', 'PuBu', 'YlGnBu', 'PuBuGn', 'BuGn', 'YlGn']
 
-fig1 = make_subplots(rows=1, cols=2,
-                     subplot_titles=('Lombardia', 'Svizzera'),
-                     shared_yaxes=True
-                     )
 
-m_traces = []
-c_c = 0  # color counter
-for m in un_m:
-    # data selection
-    temp = combined[combined.index.month == m]
-    temp_lom = temp['new_lom_smooth']
-    temp_ch = temp['new_ch_smooth']
-    current_lom = temp['new_cases_lom']
-    current_ch = temp['new_cases_ch']
+# FUNCTIONS
 
-    # prepare string and colour
-    month_s = pd.to_datetime("2020-1-1").replace(month=int(m)).month_name()
-    col_lom = pal_lom[c_c]
-    col_ch = pal_ch[c_c]
-    m_s = 2
+def create_country_palette(country_df):
+    un_m = country_df.index.month.unique()
+    # pick a color
+    col = random.sample(cmaps)
+    # create palette as hex
+    palette = sns.color_palette(col, n_colors=len(un_m) + 2).as_hex()
+    return palette, col
+
+
+def plot_new_cases(country_df, country_name, color_palette):
+    # create figure
+    fig1 = make_subplots(rows=1, cols=2,
+                         subplot_titles=('Lombardia', 'Svizzera'),
+                         shared_yaxes=True
+                         )
+    un_m = country_df.index.month.unique()
+    m_traces = []
+    c_c = 0
+    m_s = 2  # marker size
     m_o = 0.8  # marker opacity
+    for m in un_m:
+        # data selection
+        temp = country_df[country_df.index.month == m]
+        current = temp['new_cases']
+        # prepare string and colour
+        month_s = pd.to_datetime("2020-1-1").replace(month=int(m)).month_name()
+        current_col = color_palette[c_c]
+        monthly = go.Scatter(x=temp.index.day,
+                             y=temp,
+                             name=f"{month_s}",
+                             marker_color=current_col,
+                             line={'width': m_s},
+                             opacity=m_o,
+                             mode="lines",
+                             hovertemplate=f"Lombardia: %{{x}} {month_s}<br>nuovi casi (media sett.): %{{y:.1f}}",
+                             showlegend=True
+                             )
+        m_traces.append(monthly)
+        if m == pd.to_datetime('today').month:
+            # change viz param for current month
+            m_o = 1  # marker opacity
+            m_s = 3  # marker size
+            current_col = color_palette[c_c + 1]
 
-    # create monthly traces
-    if m == pd.to_datetime('today').month:
-        # change viz param for current month
-        m_o = 1
-        col_lom = pal_lom[c_c + 1]
-        col_ch = pal_ch[c_c + 1]
-        m_s = 3
-        # remove for filled area
-        """ note the traces have to be created one for each country otherwise they are assigned 
-        to the wrong subplot"""
-        area_lom1 = go.Scatter(x=temp_lom.index.day,
-                               y=temp_lom,
-                               fill=None,
-                               mode='lines',
-                               line_color=col_lom,
-                               showlegend=False
-                               )
-        area_ch1 = go.Scatter(x=temp_lom.index.day,
-                              y=temp_ch,
-                              fill=None,
-                              mode='lines',
-                              line_color=col_ch,
-                              showlegend=False
-                              )
-        area_lom2 = go.Scatter(x=temp_lom.index.day,
-                               y=current_lom,
-                               fill='tonexty',  # fill area between trace0 and trace1
-                               mode='lines',
-                               line={'color': col_lom, 'width': 1},
-                               name="Lombardia mese corrente",
-                               hovertemplate="Lombardia: %{x}<br>nuovi casi : %{y:.1f}",
+            # remove for filled area
+            area_1 = go.Scatter(x=temp.index.day,
+                                y=temp,
+                                fill=None,
+                                mode='lines',
+                                line_color=current_col,
+                                showlegend=False
+                                )
 
-                               )
-        area_ch2 = go.Scatter(x=temp_lom.index.day,
-                              y=current_ch,
-                              fill='tonexty',  # fill area between trace0 and trace1
-                              mode='lines',
-                              line={'color': col_ch, 'width': 1},
-                              name="Svizzera mese corrente",
-                              hovertemplate="Svizzera: %{x}<br>nuovi casi : %{y:.1f}",
-                              )
+            area_2 = go.Scatter(x=temp.index.day,
+                                y=current,
+                                fill='tonexty',  # fill area between trace0 and trace1
+                                mode='lines',
+                                line={'color': current_col, 'width': 1},
+                                name=f"{country_name} current month",
+                                hovertemplate=f"{country_name}: %{x}<br>new cases : %{y:.1f}",
 
-        m_traces.extend([  # th_m_lom,
-            # th_m_ch,
-            area_lom1, area_ch1, area_lom2, area_ch2])
+                                )
+            m_traces.extend([area_1, area_2])
 
-    m_lom = go.Scatter(x=temp_lom.index.day,
-                       y=temp_lom,
-                       name=f"{month_s}",
-                       marker_color=col_lom,
-                       line={'width': m_s},
-                       opacity=m_o,
-                       mode="lines",
-                       hovertemplate=f"Lombardia: %{{x}} {month_s}<br>nuovi casi (media sett.): %{{y:.1f}}",
-                       showlegend=True
-                       )
-    m_ch = go.Scatter(x=temp_ch.index.day,
-                      y=temp_ch,
-                      name=f" {month_s}",
-                      marker_color=col_ch,
-                      line={'width': m_s},
-                      opacity=m_o,
-                      text=month_s,
-                      mode="lines",
-                      hovertemplate=f"Lombardia: %{{x}} {month_s} <br>nuovi casi (media sett.): %{{y:.1f}}",
-                      showlegend=True
-                      )
-    m_traces.append(m_lom)
-    m_traces.append(m_ch)
-    c_c = c_c + 1
-    # define which subplot
-row_pos = tuple([1] * (len(m_traces)))
-col_pos = tuple([1, 2] * (int(len(m_traces) / 2)))
-# add traces
-fig1.add_traces(m_traces, rows=row_pos, cols=col_pos)
-# update layout
-fig1.update_layout(plot_bgcolor="white", )
-fig1.update_yaxes(showgrid=True, gridwidth=0.2, gridcolor='lightgrey')
-# fig1.show()
+        c_c = c_c + 1
+    fig1.add_traces(m_traces)
+    fig1.update_layout(plot_bgcolor="white", )
+    fig1.update_yaxes(showgrid=True, gridwidth=0.2, gridcolor='lightgrey')
+    return fig1
 
+
+def plot_deaths(country_df, country_name, palette):
+    """returns trace only"""
+    trace = go.Scatter(x=country_df.index,
+                       y=country_df['cum_deaths'],
+                       mode='markers',
+                       name=country_name,
+                       marker_size=[(4 * a / max(country_df['deaths_ratio'])) ** 2 for a in
+                                    country_df['deaths_ratio']],
+                       marker_color=[country_df[int(i)] for i in country_df.index.month.values])
+    return trace
+
+
+# -----
+
+def main():
+    source_url = 'https://covid19.who.int/WHO-COVID-19-global-data.csv'
+
+    source_raw = pd.read_csv(source_url)
+
+    # TODO: add interactive app
+    # for testing:
+    country_name1 = "Italy"
+    country_name2 = "Switzerland"
+
+    # prepare data
+    country1_df = select_columns(country_name1, source_raw)
+    country1_df = create_new_columns(country1_df)
+
+    country2_df = select_columns(country_name2)
+    country2_df = create_new_columns(country2_df)
+
+    print("data_prepared : ")
+    print(country1_df.tail())
+    print(country2_df.tail())
+
+    # ------ PLOTS -------------
+
+    # create palette
+    palette_c1, col1 = create_country_palette(country1_df)
+    palette_c2, col2 = create_country_palette(country2_df)
+    while col1 == col2:
+        print("colors picked are the same. finding new palette")
+        palette_c2, col2 = create_country_palette(country2_df)
+    # plot 1
+    fig1_c1=plot_new_cases(country1_df,country_name1,palette_c1)
+    fig1_c2=plot_new_cases(country2_df,country_name2,palette_c2)
+    # plot 2
+    # create figure
+    fig2 = make_subplots(1, 1)
+    fig2.update_layout(plot_bgcolor="white")
+    fig2.update_yaxes(showgrid=True, gridwidth=0.2, gridcolor='lightgrey', title_text='cumulative deaths')
+    # add trace from country 1
+    fig2.add_trace(plot_deaths(country1_df, country_name1, palette_c1))
+    # add trace from country 2
+    fig2.add_trace(plot_deaths(country2_df, country_name2, palette_c2))
+    # ----- DASH APP -----------
+    external_stylesheets = ['assets/stylesheet.css']
+    app = dash.Dash(__name__, external_stylesheets=external_stylesheets)
+    server = app.server  # important for heroku
+
+    # Define app layout
+    app.layout = html.Div([
+        # Header
+        html.H1(className='h1', children='Covid for Mums',
+
+                ),
+
+        html.Div(className="h1", children='A Dash web application framework for COVID analysis',
+
+                 ),
+
+        # separation line
+        html.Hr(),
+
+        # 3rd header
+        html.Div([
+            html.H3(className="h3", children="Hi Mum, here are today's new cases:"),
+            html.Div(children=[
+                html.Div(children=country_name1),
+                html.Div(country1_df['new_cases'].iloc[-1])
+            ],
+                className="pretty_container",
+                style={'display': 'inline-block', 'background-color': '#9FA4F5',
+                       'color': "white",
+                       'font-weight': 'bold', 'font-size': '200%'}
+
+            ),
+            html.Div(children=[
+                html.Div(children=country_name2),
+                html.Div(country2_df['new_cases'].iloc[-1])
+            ],
+                className='pretty_container',
+                style={'display': 'inline-block', 'display': 'inline-block', 'background-color': '#ffa6b9',
+                       'color': "white",
+                       'font-weight': 'bold', 'font-size': '200%'}
+            ),
+        ],
+            style={'padding-left': '40%'}
+        ),
+        # Time series plot of global confirmed cases
+        html.Div(children=[
+            html.H3(children="This is the monthly trend of new cases"),
+            html.Div(
+                children="New cases have been translated in weekly average, except for the last month.\
+                 The lighter the colors the further away in the past"),
+                    html.Div(children=dcc.Graph(figure=fig1_c1),
+                             className="pretty_container",
+                             style={'display': 'inline-block'} ),
+                    html.Div(children=dcc.Graph(figure=fig1_c1),
+                             className="pretty_container",
+                            style={'display': 'inline-block'})
+
+            # add trace for each country
+
+        ], className="h1"),
+
+        # time series of deaths and ratio over cases
+        html.Div(children=[
+            html.H3(children="This is the cumulative trend of deaths", className='h3'),
+            # html.H3(className="h3", children='Ciao mamma \n, ecco i nuovi casi di oggi:'),
+            html.Div(children="Dot size gives you an idea of the relationship between new cases and deaths"),
+            dcc.Graph(figure=fig2)
+        ],
+        ),
+        html.Aside(className=".sidebar a",
+                   children="Made by Matteo Jucker Riva Thanks to propulsion Academy for all the skills", )
+    ])
+    return app
+
+app = main()
+
+if __name__ == '__main__':
+    # run app
+    app.run_server(debug=False)
+
+"""
 
 # plot 2 cumulative deaths
 fig2 = make_subplots(rows=1, cols=1,
@@ -248,9 +295,8 @@ fig2.add_trace(go.Scatter(x=combined.index,
                           marker_color=[pal_ch[int(i)] for i in combined.index.month.values]
                           ))
 
-fig2.update_layout(plot_bgcolor="white", title="Morti cumulative")
-
-fig2.update_yaxes(showgrid=True, gridwidth=0.2, gridcolor='lightgrey', title_text='numero di morti')
+fig2.update_layout(plot_bgcolor="white")
+fig2.update_yaxes(showgrid=True, gridwidth=0.2, gridcolor='lightgrey', title_text='cumulative deaths')
 # fig2.show()
 
 ## --------------------------------------DASHBOARD-------------------------------------------------
@@ -328,7 +374,4 @@ app.layout = html.Div([
      ),
     html.Aside(className=".sidebar a", children="Made by Matteo Jucker Riva Thanks to propulsion Academy for all the skills", )
 ])
-
-if __name__ == '__main__':
-    # run app
-    app.run_server(debug=False)
+"""
