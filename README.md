@@ -28,13 +28,13 @@ Deaths from COVID are the result of long weeks of sickness, thus their daily cha
 
 Deployed on Heroku at : *_[mamma-il-covid.herokuapp.com](mamma-il-covid.herokuapp.com)_*
 
-### Files:  
+## Files:  
 |_main.py currently contains plots, dash app and deployment   
 |_Procfile: required by heroku   
 |_requirements.txt required by heroku, created using pipreqs pipreqs /path/to/project   
    see stackoverflow.com/questions/31684375/automatically-create-requirements-txt
 
-### Requirements:
+## Requirements:
 
 dash_table==4.4.1  
 numpy==1.19.1  
