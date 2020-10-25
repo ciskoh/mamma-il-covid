@@ -1,10 +1,10 @@
 
 # A dashboard for my mum:  
-# COVID DATA COMPARISON  between Switzerland and Lombardy (ITA)    
+# COVID DATA COMPARISON  between countries
 Created by: matteo jucker riva   
 Data sourced from [World Health Organisation](https://covid19.who.int/WHO-COVID-19-global-data.csv)    
    
-#Deployed to [https://covid-data-for-mums.herokuapp.com/](https://covid-data-for-mums.herokuapp.com/)
+# Deployed to [https://covid-data-for-mums.herokuapp.com/](https://covid-data-for-mums.herokuapp.com/)  
    
 ## Introduction
 *Perception is strong and sight weak. In strategy it is important to see distant things as if they were close and to take a distanced view of close things.*
