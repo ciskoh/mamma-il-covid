@@ -281,7 +281,7 @@ def update_panel_c2(country_name):
 
 @app.callback(Output('fig1_c1', 'figure'),
               Input('selector1', 'value'))
-def update_plot_newcases_1(country_name_1, palette_c1=palette_c1, max_yrange=100):
+def update_plot_newcases_1(country_name_1, palette_c1=palette_c1, max_yrange=2):
     country_df1 = data_prep_wrapper(country_name_1)
     plot_c1 = plot_new_cases(country_df1, country_name_1, palette_c1)
     # set same y axis range to both plots
@@ -291,7 +291,7 @@ def update_plot_newcases_1(country_name_1, palette_c1=palette_c1, max_yrange=100
 
 @app.callback(Output('fig1_c2', 'figure'),
               Input('selector2', 'value'))
-def update_plot_newcases_2(country_name_2, palette_c2=palette_c2, max_yrange=100):
+def update_plot_newcases_2(country_name_2, palette_c2=palette_c2, max_yrange=2):
     country_df2 = data_prep_wrapper(country_name_2)
     plot_c2 = plot_new_cases(country_df2, country_name_2, palette_c2)
     # set same y axis range to both plots
