@@ -2,9 +2,10 @@
 # A dashboard for my mum:  
 # COVID DATA COMPARISON  between Switzerland and Lombardy (ITA)    
 Created by: matteo jucker riva   
-Data sourced from [World Health Organisation](https://covid19.who.int/WHO-COVID-19-global-data.csv)  
-
-
+Data sourced from [World Health Organisation](https://covid19.who.int/WHO-COVID-19-global-data.csv)    
+   
+#Deployed to [https://covid-data-for-mums.herokuapp.com/](https://covid-data-for-mums.herokuapp.com/)
+   
 ## Introduction
 *Perception is strong and sight weak. In strategy it is important to see distant things as if they were close and to take a distanced view of close things.*
 ― Miyamoto Musashi
@@ -26,7 +27,6 @@ The first plot shows the new daily cases for each selected country, smoothed wit
 ### Cumulative deaths
 Deaths from COVID are the result of long weeks of sickness, thus their daily change is less interesting, as no relevant inference can be done on daily, or even weekly changes. However, it in order to get a perception of the mortality, the marker site is proportional to the ratio between new cases and deaths.
 
-Deployed on Heroku at : *_[mamma-il-covid.herokuapp.com](mamma-il-covid.herokuapp.com)_*
 
 ## Files:  
 |_main.py currently contains plots, dash app and deployment   
