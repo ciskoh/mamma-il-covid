@@ -239,7 +239,7 @@ def plot_new_cases(country_df, country_name, color_palette):
         c_c = c_c + 1
     fig1.add_traces(m_traces)
     fig1.update_layout(plot_bgcolor="white", )
-    fig1.update_yaxes(showgrid=True, gridwidth=0.5, gridcolor='lightgrey')
+    fig1.update_yaxes(type='log', showgrid=True, gridwidth=0.2, gridcolor='lightgrey')
     return fig1
 
 
