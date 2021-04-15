@@ -172,5 +172,9 @@ vignettes/*.pdf
 # R package: bookdown caching files
 /*_files/
 
+
+## notebooks
+*.ipynb
+
 # End of https://www.gitignore.io/api/r,python,jupyternotebooks
 
