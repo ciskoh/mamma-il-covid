@@ -24,7 +24,7 @@ from dash.dependencies import Input, Output
 # ----- PARAMETERS -----------
 source_url = 'https://covid19.who.int/WHO-COVID-19-global-data.csv'  # source of covid data
 source_raw = pd.read_csv(source_url)
-country_list = source_raw[' Country'].unique()
+country_list = source_raw['Country'].unique()
 
 source_pop = 'assets/pop.csv'  # population data for normalisation
 pop_df = pd.read_csv(source_pop)
